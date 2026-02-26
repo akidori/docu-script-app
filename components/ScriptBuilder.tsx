@@ -248,8 +248,8 @@ export default function ScriptBuilder() {
         ))}
       </nav>
 
-      {/* 設定（折りたたみ） */}
-      <section className="card p-4">
+      {/* 設定（参考脚本・スプシURLのみ。APIキー項目は廃止） */}
+      <section className="card p-4" data-settings-version="2">
         <button
           type="button"
           onClick={() => setSettingsOpen((o) => !o)}
