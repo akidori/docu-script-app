@@ -1,101 +1,60 @@
-import Image from "next/image";
+import Link from "next/link";
+
+export const metadata = {
+  title: "密着ドキュメンタリー脚本アプリ | 日本一の密着ドキュメの脚本を",
+  description: "脳科学に基づく構成（キャンベル・シンデレラ）で、密着ドキュメンタリーの脚本を作成。関連URLから肉付けできます。",
+};
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen flex flex-col bg-[var(--background)]">
+      <header className="border-b border-[var(--card-border)] bg-[var(--card)] sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-5 py-5">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+            密着ドキュメンタリー脚本アプリ
+          </h1>
+          <p className="text-sm text-[var(--muted)] mt-0.5">
+            日本一の密着ドキュメの脚本を、脳の取り扱い説明書で作る
+          </p>
         </div>
+      </header>
+      <main className="flex-1 max-w-2xl mx-auto px-5 py-10 w-full">
+        <div className="space-y-5">
+          <section className="card p-6">
+            <h2 className="text-base font-semibold text-[var(--foreground)] mb-2">
+              脚本ビルダー
+            </h2>
+            <p className="text-sm text-[var(--muted)] mb-4 leading-relaxed">
+              キャンベル（ヒーローズジャーニー）かシンデレラストーリーの構成を選び、各セクションに台本・メモを書けます。文字起こしを貼ってGeminiで構成を作成できます。
+            </p>
+            <Link
+              href="/builder"
+              className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm"
+            >
+              脚本を作る
+              <span className="opacity-80">→</span>
+            </Link>
+          </section>
+          <section className="card p-6">
+            <h2 className="text-base font-semibold text-[var(--foreground)] mb-2">
+              フレームワーク参照
+            </h2>
+            <p className="text-sm text-[var(--muted)] mb-4 leading-relaxed">
+              30秒ルール（175文字）、キャンベル・シンデレラのセクション一覧と「使う脳」「尺」の目安を確認できます。
+            </p>
+            <Link
+              href="/framework"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm rounded-[var(--radius)] border border-[var(--card-border)] text-[var(--foreground)] hover:bg-[var(--card-border)]/30 transition-colors"
+            >
+              参照を見る
+              <span className="opacity-80">→</span>
+            </Link>
+          </section>
+        </div>
+        <p className="mt-10 text-xs text-[var(--muted)] text-center">
+          構成と尺の設計は「ナラティブ編集力」の考え方に基づいています。
+        </p>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }

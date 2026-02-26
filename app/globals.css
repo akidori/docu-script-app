@@ -3,25 +3,105 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafafa;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-border: #e2e8f0;
+  --muted: #64748b;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-muted: #e0e7ff;
+  --success: #10b981;
+  --success-hover: #059669;
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card: #1e293b;
+    --card-border: #334155;
+    --muted: #94a3b8;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-muted: #312e81;
+    --success: #34d399;
+    --success-hover: #6ee7b7;
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.2);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* 新世代カード */
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.card-elevated {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background 0.15s, transform 0.05s;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-success {
+  background: var(--success);
+  color: white;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background 0.15s, transform 0.05s;
+}
+.btn-success:hover:not(:disabled) {
+  background: var(--success-hover);
+}
+.btn-success:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.input-base {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input-base:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
 }
