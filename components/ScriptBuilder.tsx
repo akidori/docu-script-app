@@ -19,8 +19,7 @@ import {
   historyContextForPrompt,
   type ProjectRecord,
 } from "@/lib/history";
-
-const API_KEY_STORAGE = "docu_script_gemini_api_key";
+import { splitTranscriptIntoFive, applyFlowTemplate } from "@/lib/simple-split";
 
 interface WizardSection {
   id: string;
@@ -54,7 +53,6 @@ export default function ScriptBuilder() {
   const [spreadsheetUrl, setSpreadsheetUrl] = useState("");
   const [pastedTable, setPastedTable] = useState("");
 
-  const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -63,27 +61,11 @@ export default function ScriptBuilder() {
   const [projectLessons, setProjectLessons] = useState("");
   const [history, setHistory] = useState<ProjectRecord[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [useSimpleMode, setUseSimpleMode] = useState(true);
 
   useEffect(() => {
-    try {
-      const k = localStorage.getItem(API_KEY_STORAGE);
-      if (k) setApiKey(k);
-    } catch { /* ignore */ }
     setHistory(loadHistory());
   }, []);
-
-  const saveApiKey = useCallback(() => {
-    try {
-      if (apiKey.trim()) localStorage.setItem(API_KEY_STORAGE, apiKey.trim());
-      else localStorage.removeItem(API_KEY_STORAGE);
-    } catch { /* ignore */ }
-  }, [apiKey]);
-
-  const getKey = useCallback((): string => {
-    const k = apiKey.trim();
-    if (k) return k;
-    try { return localStorage.getItem(API_KEY_STORAGE) ?? ""; } catch { return ""; }
-  }, [apiKey]);
 
   const callGemini = useCallback(async (payload: Record<string, unknown>) => {
     setLoading(true);
@@ -93,10 +75,15 @@ export default function ScriptBuilder() {
       const res = await fetch("/api/gemini/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, apiKey: getKey(), historyContext: hCtx }),
+        body: JSON.stringify({ ...payload, historyContext: hCtx }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "処理に失敗しました");
+      if (!res.ok) {
+        const message = res.status === 429 || data.error === "QUOTA_EXCEEDED"
+          ? (data.message || "Geminiの利用枠に達しました。1分後か翌日までお待ちください。")
+          : (data.error || "処理に失敗しました");
+        throw new Error(message);
+      }
       return data.sections as WizardSection[];
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
@@ -104,37 +91,53 @@ export default function ScriptBuilder() {
     } finally {
       setLoading(false);
     }
-  }, [getKey]);
+  }, []);
 
-  // Step 1 → 2: 5セクションに分割
+  // Step 1 → 2: 5セクションに分割（簡易＝均等分割 / Gemini＝API）
   const handleSplit = useCallback(async () => {
     if (!transcript.trim()) { setError("文字起こしを貼ってください。"); return; }
-    if (!getKey()) { setError("Gemini APIキーを設定してください。"); setSettingsOpen(true); return; }
+    if (useSimpleMode) {
+      setError(null);
+      const result = splitTranscriptIntoFive(transcript.trim());
+      setMainSections(result);
+      setStep(2);
+      return;
+    }
     const result = await callGemini({ mode: "split", transcript: transcript.trim() });
     if (result) { setMainSections(result); setStep(2); }
-  }, [transcript, callGemini, getKey]);
+  }, [transcript, useSimpleMode, callGemini]);
 
-  // Step 2 → 3: 細分化
+  // Step 2 → 3: 細分化（簡易＝テンプレート当てるだけ / Gemini＝API）
   const handleSubdivide = useCallback(async () => {
-    if (!getKey()) { setError("Gemini APIキーを設定してください。"); setSettingsOpen(true); return; }
+    if (useSimpleMode) {
+      setError(null);
+      const result = applyFlowTemplate(mainSections);
+      setDetailedSections(result);
+      setStep(3);
+      return;
+    }
     const result = await callGemini({
       mode: "subdivide",
       sections: mainSections,
       structureType,
     });
     if (result) { setDetailedSections(result); setStep(3); }
-  }, [mainSections, structureType, callGemini, getKey]);
+  }, [mainSections, structureType, useSimpleMode, callGemini]);
 
-  // Step 3 → 4: AI提案
+  // Step 3 → 4: AI提案（簡易＝スキップしてそのまま / Gemini＝API）
   const handlePropose = useCallback(async () => {
-    if (!getKey()) { setError("Gemini APIキーを設定してください。"); setSettingsOpen(true); return; }
+    if (useSimpleMode) {
+      setProposedSections([]);
+      setStep(5);
+      return;
+    }
     const result = await callGemini({
       mode: "propose",
       sections: detailedSections,
       referenceScript: referenceScript.trim() || undefined,
     });
     if (result) { setProposedSections(result); setStep(4); }
-  }, [detailedSections, referenceScript, callGemini, getKey]);
+  }, [detailedSections, referenceScript, useSimpleMode, callGemini]);
 
   // Step 5: スプレッドシートに書き戻し
   const handleWriteToSheet = useCallback(async () => {
@@ -252,38 +255,13 @@ export default function ScriptBuilder() {
           onClick={() => setSettingsOpen((o) => !o)}
           className="w-full text-left text-sm font-medium text-[var(--foreground)] flex items-center justify-between"
         >
-          <span>設定（APIキー・参考脚本・スプレッドシート）</span>
+          <span>設定</span>
           <span className="text-xs text-[var(--muted)]">{settingsOpen ? "閉じる" : "開く"}</span>
         </button>
         {settingsOpen && (
           <div className="mt-4 space-y-4">
-            {/* API Key */}
             <div>
-              <label className="block text-xs text-[var(--muted)] mb-1">Gemini APIキー</label>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  onBlur={saveApiKey}
-                  placeholder="APIキーを入力"
-                  className="input-base flex-1 px-3 py-2 text-sm"
-                  autoComplete="off"
-                />
-                <button type="button" onClick={saveApiKey} className="btn-primary px-3 py-2 text-xs">保存</button>
-              </div>
-              <a
-                href="https://aistudio.google.com/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[var(--accent)] hover:underline mt-1 inline-block"
-              >
-                APIキーを取得 →
-              </a>
-            </div>
-            {/* 参考脚本 */}
-            <div>
-              <label className="block text-xs text-[var(--muted)] mb-1">参考脚本（任意・トーンを学習）</label>
+              <label className="block text-xs text-[var(--muted)] mb-1">参考脚本（任意・AIのトーンを学習）</label>
               <textarea
                 value={referenceScript}
                 onChange={(e) => setReferenceScript(e.target.value)}
@@ -325,11 +303,33 @@ export default function ScriptBuilder() {
       {/* ===== Step 1: 文字起こしを貼る ===== */}
       {step === 1 && (
         <section className="card-elevated p-6 border-[var(--accent)]/30 border">
-          <h2 className="text-base font-semibold text-[var(--foreground)] mb-2">
-            1. 文字起こしを貼り付ける
-          </h2>
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <h2 className="text-base font-semibold text-[var(--foreground)]">
+              1. 文字起こしを貼り付ける
+            </h2>
+            <label className="flex items-center gap-2 cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={useSimpleMode}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setUseSimpleMode(on);
+                  if (on) setError(null);
+                }}
+                className="rounded border-[var(--card-border)]"
+              />
+              <span className="text-sm text-[var(--foreground)]">簡易モード（無料・すぐ使える）</span>
+            </label>
+          </div>
           <p className="text-sm text-[var(--muted)] mb-3">
-            インタビューの文字起こしを貼ると、Geminiが5つのセクションに自動で分割します。
+            {useSimpleMode ? (
+              <>
+                文字起こしを貼ると、5セクションに均等分割します。
+                編集→細分化→反映までそのままお使いいただけます。
+              </>
+            ) : (
+              "インタビューの文字起こしを貼ると、Geminiが5つのセクションに自動で分割します。"
+            )}
           </p>
           <textarea
             value={transcript}
@@ -345,10 +345,14 @@ export default function ScriptBuilder() {
             <button
               type="button"
               onClick={handleSplit}
-              disabled={loading || !transcript.trim()}
+              disabled={(!useSimpleMode && loading) || !transcript.trim()}
               className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50"
             >
-              {loading ? "分割中…" : "Geminiで5セクションに分割 →"}
+              {useSimpleMode
+                ? "5セクションに均等分割 →"
+                : loading
+                  ? "分割中…"
+                  : "Geminiで5セクションに分割 →"}
             </button>
           </div>
 
@@ -402,12 +406,18 @@ export default function ScriptBuilder() {
             ))}
           </div>
 
-          {/* 構成を選ぶ */}
+          {/* 構成を選ぶ（簡易モードでは密着の流れで固定） */}
           <div className="mt-6 border-t border-[var(--card-border)] pt-4">
-            <p className="text-sm font-medium text-[var(--foreground)] mb-2">
-              細分化する構成を選ぶ
-            </p>
-            <div className="flex flex-wrap gap-2">
+            {useSimpleMode ? (
+              <p className="text-sm text-[var(--muted)] mb-2">
+                簡易モード：密着の流れ（5セクション）で細分化します。
+              </p>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-[var(--foreground)] mb-2">
+                  細分化する構成を選ぶ
+                </p>
+                <div className="flex flex-wrap gap-2">
               {(["flow", "campbell", "cinderella"] as const).map((t) => (
                 <button
                   key={t}
@@ -423,7 +433,9 @@ export default function ScriptBuilder() {
                   <span className="text-xs text-[var(--muted)] block mt-0.5">{STRUCTURE_META[t].description}</span>
                 </button>
               ))}
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3">
@@ -437,10 +449,14 @@ export default function ScriptBuilder() {
             <button
               type="button"
               onClick={handleSubdivide}
-              disabled={loading}
+              disabled={!useSimpleMode && loading}
               className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50"
             >
-              {loading ? "細分化中…" : "修正OK → Geminiで細分化 →"}
+              {useSimpleMode
+                ? "修正OK → テンプレートを当てる →"
+                : loading
+                  ? "細分化中…"
+                  : "修正OK → Geminiで細分化 →"}
             </button>
           </div>
         </section>
@@ -450,10 +466,12 @@ export default function ScriptBuilder() {
       {step === 3 && (
         <section className="card-elevated p-6 border-[var(--accent)]/30 border">
           <h2 className="text-base font-semibold text-[var(--foreground)] mb-2">
-            3. 脳科学で細分化されました — 修正してください
+            3. 細分化されました — 修正してください
           </h2>
           <p className="text-sm text-[var(--muted)] mb-4">
-            各シーンの「使う脳」「シーン種別」「尺」を参考に原稿を確認・修正し、次の「AI提案」に進みます。
+            {useSimpleMode
+              ? "各シーンの「使う脳」「尺」を参考に原稿を確認・修正し、「反映へ」でスプレッドシートに進みます。"
+              : "各シーンの「使う脳」「シーン種別」「尺」を参考に原稿を確認・修正し、次の「AI提案」に進みます。"}
           </p>
           <div className="space-y-4">
             {detailedSections.map((sec, i) => (
@@ -494,21 +512,33 @@ export default function ScriptBuilder() {
             >
               ← 戻る
             </button>
-            <button
-              type="button"
-              onClick={handlePropose}
-              disabled={loading}
-              className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50"
-            >
-              {loading ? "提案中…" : "修正OK → AIに提案してもらう →"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setProposedSections([]); setStep(5); }}
-              className="px-4 py-2 text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              提案をスキップして反映へ →
-            </button>
+            {useSimpleMode ? (
+              <button
+                type="button"
+                onClick={handlePropose}
+                className="btn-success px-5 py-2.5 text-sm"
+              >
+                修正OK → 反映へ →
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePropose}
+                  disabled={loading}
+                  className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50"
+                >
+                  {loading ? "提案中…" : "修正OK → AIに提案してもらう →"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setProposedSections([]); setStep(5); }}
+                  className="px-4 py-2 text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
+                >
+                  提案をスキップして反映へ →
+                </button>
+              </>
+            )}
           </div>
         </section>
       )}

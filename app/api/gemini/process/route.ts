@@ -186,22 +186,62 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "mode を指定してください（split / subdivide / propose）。" }, { status: 400 });
     }
 
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: prompt,
-      config: { temperature: 0.3, maxOutputTokens: 16384 },
-    });
+    const textPart = typeof prompt === "string" ? prompt : String(prompt);
 
-    const raw = response.text?.trim();
-    if (!raw) {
+    let rawTrimmed: string | undefined;
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: [{ role: "user", parts: [{ text: textPart }] }],
+        config: { temperature: 0.3, maxOutputTokens: 16384 },
+      });
+      rawTrimmed = response.text?.trim();
+    } catch (sdkErr) {
+      const msg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr);
+      if (msg.includes("ByteString") || msg.includes("greater than 255") || msg.includes("12424")) {
+        const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const restRes = await fetch(restUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: textPart }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 16384 },
+          }),
+        });
+        if (!restRes.ok) {
+          const errBody = await restRes.text();
+          if (restRes.status === 429) {
+            return NextResponse.json(
+              { error: "QUOTA_EXCEEDED", message: "Geminiの利用枠に達しました。無料枠の場合は1分後か、翌日までお待ちください。" },
+              { status: 429 }
+            );
+          }
+          throw new Error(errBody || `REST API error: ${restRes.status}`);
+        }
+        const restJson = (await restRes.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
+        rawTrimmed = restJson.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      } else {
+        throw sdkErr;
+      }
+    }
+
+    if (!rawTrimmed) {
       return NextResponse.json({ error: "Geminiから応答が空でした。" }, { status: 502 });
     }
 
-    const parsed = JSON.parse(extractJson(raw));
+    const parsed = JSON.parse(extractJson(rawTrimmed));
     return NextResponse.json({ sections: parsed.sections ?? [], mode });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Gemini処理中にエラーが発生しました。";
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("exceeded your current quota")) {
+      return NextResponse.json(
+        { error: "QUOTA_EXCEEDED", message: "Geminiの利用枠に達しました。無料枠の場合は1分後か、翌日までお待ちください。" },
+        { status: 429 }
+      );
+    }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

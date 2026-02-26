@@ -1,4 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 密着ドキュメンタリー脚本アプリ
+
+文字起こしを5セクションに分割→脳科学で細分化→AI提案→スプレッドシート反映までを行うWebアプリ（Next.js + Gemini + Vercel）。
+
+---
+
+## コードを更新したら（どこにプッシュするか）
+
+**プッシュ先 = このリポジトリ（GitHub: akidori/docu-script-app）**
+
+1. ターミナルでプロジェクトフォルダへ:
+   ```bash
+   cd /Users/aki/Desktop/docu-script-app
+   ```
+2. 変更を GitHub に送る:
+   ```bash
+   git add -A
+   git commit -m "修正内容を一言で"
+   git push
+   ```
+3. **push すると、連携している Vercel が自動でデプロイします。**  
+   数分後に https://docu-script-app.vercel.app が最新版になります。
+
+---
+
+## デプロイのリスクと対策
+
+| 気にすること | リスク | 対策 |
+|-------------|--------|------|
+| **ソースコード** | リポジトリが公開なら誰でもコードを見られる | 秘密（APIキー等）はコードに書かず、Vercel の環境変数やアプリ内入力のみ（いまの構成でOK） |
+| **APIキー** | 漏れると悪用される | ブラウザ入力分は端末の localStorage のみ。Vercel に置くキーは環境変数で設定し、リポジトリには含めない |
+| **URLが知られる** | アプリのURLを知っている人が使える | 無料公開が目的なら問題なし。限定したい場合は Vercel のパスワード保護やリポジトリを非公開に |
+| **利用料** | Gemini / Vercel の無料枠を超える | 使用量に応じて課金。各サービスの料金ページで確認 |
+
+**まとめ:** APIキーをコードに書かず、GitHub に秘密を上げていなければ、一般的なリスクは抑えられています。
+
+---
 
 ## Getting Started
 

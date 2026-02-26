@@ -126,9 +126,10 @@ export async function POST(request: NextRequest) {
     );
 
     const ai = new GoogleGenAI({ apiKey });
+    // 日本語などマルチバイト文字を正しく送るため、Content 形式で渡す（ByteString エラー回避）
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
         temperature: 0.3,
         maxOutputTokens: 8192,
